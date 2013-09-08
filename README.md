@@ -8,6 +8,10 @@ Scraper para la sección [Datos de Municipios de minterior.gov.ar](http://www.mi
     pip install requests lxml
     python muni-scraper.py > municipios.csv
 
+## Demo
+
+[Ver datos en un Fusion Table](https://www.google.com/fusiontables/data?docid=1QzJGCPOEaUh6RhWYaR8MBhHCRpQ_IK-amkS39o8#rows:id=1)
+
 
 ## Licencia
 

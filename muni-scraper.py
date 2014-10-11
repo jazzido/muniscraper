@@ -101,7 +101,7 @@ def get_muni_data(code):
     rv['Nombre Provincia'] = PROVINCIAS[code[:3]].decode('utf-8')
     rv['Codigo Provincia'] = code[:3]
     rv['Codigo Municipio'] = code
-    rv['Nombre Municipio'] = doc.cssselect('div#info h1')[0].text_content().strip()
+    rv['Nombre Municipio'] = doc.cssselect('div#mas-info h1')[0].text_content().strip()
     rv['Municipio Long'], rv['Municipio Lat'] = '', ''
 
     iframe = doc.cssselect('iframe')

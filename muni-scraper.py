@@ -1,5 +1,5 @@
 # coding: utf-8
-import sys, urlparse, csv, cStringIO, codecs
+import sys, urlparse, cStringIO, codecs, unicodecsv
 
 import requests
 from lxml import html, etree
@@ -50,51 +50,25 @@ FIELDS = [
     'Jefe de Gobierno Reelecto'
 ]
 
-class DictUnicodeWriter(object):
-
-    def __init__(self, f, fieldnames, dialect=csv.excel, encoding="utf-8", **kwds):
-        # Redirect output to a queue
-        self.fieldnames = fieldnames
-        self.queue = cStringIO.StringIO()
-        self.writer = csv.DictWriter(self.queue, fieldnames, dialect=dialect, **kwds)
-        self.stream = f
-        self.encoder = codecs.getincrementalencoder(encoding)()
-
-    def writerow(self, D):
-        self.writer.writerow({k:v.encode("utf-8") for k,v in D.items()})
-        # Fetch UTF-8 output from the queue ...
-        data = self.queue.getvalue()
-        data = data.decode("utf-8")
-        # ... and reencode it into the target encoding
-        data = self.encoder.encode(data)
-        # write to the target stream
-        self.stream.write(data)
-        # empty queue
-        self.queue.truncate(0)
-
-    def writerows(self, rows):
-        for D in rows:
-            self.writerow(D)
-
-    def writeheader(self):
-        header = dict(zip(self.fieldnames, self.fieldnames))
-        self.writerow(header)
-
 def get_munis_by_prov(prov_code):
     """ genera lista de codigos de municipios segun `prov_code` """
-    r = requests.get('http://www.mininterior.gov.ar/municipios/lista_municipios.php?provincia=%s' % prov_code)
+    url = 'http://www.mininterior.gov.ar/municipios/lista_municipios.php?provincia=%s' % prov_code
+    print >>sys.stderr, "requesting: %s" % url
+    r = requests.get(url)
     for opt in html.document_fromstring(r.text).cssselect('option'):
         if opt.attrib.get('value', '') != '':
             yield opt.attrib['value'], opt.text
 
 def get_muni_data(code):
     """ scrapea datos de municipio, retorna dict """
-    r = requests.get('http://www.mininterior.gov.ar/municipios/masinfo.php?municipio=%s' % code)
+    url = 'http://www.mininterior.gov.ar/municipios/masinfo.php?municipio=%s' % code
+    print >>sys.stderr, "requesting url: %s" % url
+    r = requests.get(url)
 
     if 'mal formado' in r.text:
         return None
 
-    doc = html.document_fromstring(r.text)
+    doc = html.document_fromstring(r.text.encode('iso-8859-1'))
 
     rv = {}
 
@@ -126,28 +100,34 @@ def get_muni_data(code):
 def _scrape_table(element, key_prefix=''):
     """ recibe un `Element`, devuelve diccionario """
     trs = element.cssselect('tr')
+    rv = {}
     if len(trs) > 1:
-        return { key_prefix + ' ' + tr.cssselect('td')[0].text_content().strip(): unicode(tr.cssselect('td')[1].text_content().strip())
-                 for tr in element.cssselect('tr') }
-    else:
-        return {}
-
+        for tr in element.cssselect('tr'):
+            k = key_prefix + ' ' + tr.cssselect('td')[0].text_content().strip()
+            td = tr.cssselect('td')[1]
+            etree.strip_tags(td, 'a', 'strong', 'p')
+            rv[k] = ','.join(td.itertext())
+    return rv
 
 def main():
-    csv_writer = DictUnicodeWriter(sys.stdout, FIELDS)
+    csv_writer = unicodecsv.DictWriter(sys.stdout, FIELDS)
     csv_writer.writeheader()
-    for prov_code in PROVINCIAS.keys():
+    for prov_code in sorted(PROVINCIAS.keys()):
         for muni_code, _ in get_munis_by_prov(prov_code):
             print >>sys.stderr, '---'
             print >>sys.stderr, "PARSING MUNI: %s" % muni_code
-            row = get_muni_data(muni_code)
-            if row is None:
+            try:
+                row = get_muni_data(muni_code)
+                if row is None:
+                    continue
+                print >>sys.stderr,row
+                csv_writer.writerow(row)
+                print >>sys.stderr,'---'
+            except:
                 print >>sys.stderr, 'Error en fuente'
                 print >>sys.stderr,'---'
                 continue
-            print >>sys.stderr,row
-            csv_writer.writerow(row)
-            print >>sys.stderr,'---'
+
 
 if __name__ == '__main__':
     main()

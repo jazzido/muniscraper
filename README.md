@@ -5,7 +5,7 @@ Scraper para la sección [Datos de Municipios de minterior.gov.ar](http://www.mi
 
 ## Uso
 
-    pip install requests lxml
+    pip install requests lxml unicodecsv
     python muni-scraper.py > municipios.csv
 
 ## Demo
